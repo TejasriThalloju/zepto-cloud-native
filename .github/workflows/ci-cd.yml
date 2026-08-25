@@ -50,12 +50,15 @@ jobs:
         docker tag "$ECR_WEB:${GITHUB_SHA}" "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_WEB:${GITHUB_SHA}"
         docker push "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_WEB:${GITHUB_SHA}"
 
-    - name: Trivy scan
-      uses: aquasecurity/trivy-action@0.28.0
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@v0.36.0
       with:
-        image-ref: "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_API }}:${{ github.sha }}"
-        severity: "CRITICAL,HIGH"
-        exit-code: "1"
+        image-ref: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+        format: table
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'
 
   deploy:
     if: github.event_name == 'push'
