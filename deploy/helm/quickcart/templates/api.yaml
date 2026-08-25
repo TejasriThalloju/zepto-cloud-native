@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: quickcart-api}
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector: {matchLabels: {app: quickcart-api}}
+  template:
+    metadata: {labels: {app: quickcart-api}}
+    spec:
+      containers:
+      - name: api
+        image: "{{ .Values.api.image }}:{{ .Values.api.tag }}"
+        ports: [{containerPort: 8000}]
+        env:
+        - {name: DATABASE_URL, value: "{{ .Values.api.databaseUrl }}"}
+        - {name: REDIS_URL, value: "{{ .Values.api.redisUrl }}"}
+        - {name: CORS_ORIGINS, value: "{{ .Values.api.corsOrigins }}"}
+        readinessProbe: {httpGet: {path: /ready, port: 8000}, initialDelaySeconds: 10}
+        livenessProbe: {httpGet: {path: /health, port: 8000}, initialDelaySeconds: 15}
+        resources:
+          requests: {cpu: "100m", memory: "128Mi"}
+          limits: {cpu: "500m", memory: "512Mi"}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: quickcart-api}
+spec:
+  selector: {app: quickcart-api}
+  ports: [{port: 8000, targetPort: 8000}]

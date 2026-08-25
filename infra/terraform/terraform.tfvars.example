@@ -1,0 +1,7 @@
+region = "ap-south-1"
+project = "quickcart"
+db_name = "quickcart"
+db_user = "quickcart"
+db_password = "CHANGE-ME"
+github_org = "YOUR_GITHUB_USERNAME_OR_ORG"
+github_repo = "quickcart-cloud-native"

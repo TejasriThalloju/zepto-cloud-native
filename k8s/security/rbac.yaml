@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: quickcart-api
+  namespace: quickcart
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: quickcart-read
+  namespace: quickcart
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get","list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: quickcart-read
+  namespace: quickcart
+subjects:
+- kind: ServiceAccount
+  name: quickcart-api
+  namespace: quickcart
+roleRef:
+  kind: Role
+  name: quickcart-read
+  apiGroup: rbac.authorization.k8s.io

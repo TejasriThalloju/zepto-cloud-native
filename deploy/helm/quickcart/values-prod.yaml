@@ -1,0 +1,16 @@
+api:
+  image: "REPLACE_ECR_API"
+  tag: "latest"
+  replicas: 3
+  databaseUrl: "REPLACE_DATABASE_URL"
+  redisUrl: "REPLACE_REDIS_URL"
+  corsOrigins: "https://quickcart.example.com"
+
+web:
+  image: "REPLACE_ECR_WEB"
+  tag: "latest"
+  replicas: 3
+  apiUrl: "/api"
+
+ingress:
+  host: "quickcart.example.com"

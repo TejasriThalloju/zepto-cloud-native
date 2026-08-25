@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: quickcart-alerts
+  namespace: monitoring
+spec:
+  groups:
+  - name: quickcart
+    rules:
+    - alert: QuickCartApiDown
+      expr: up{job=~".*quickcart-api.*"} == 0
+      for: 2m
+      labels: {severity: critical}
+      annotations:
+        summary: QuickCart API is down
+    - alert: QuickCartHighCPU
+      expr: sum(rate(container_cpu_usage_seconds_total{pod=~"quickcart-api.*"}[5m])) > 2
+      for: 5m
+      labels: {severity: warning}
+      annotations:
+        summary: QuickCart API CPU is high

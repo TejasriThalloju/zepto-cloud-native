@@ -1,0 +1,77 @@
+name: QuickCart CI/CD
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_API: quickcart/api
+  ECR_WEB: quickcart/web
+  EKS_CLUSTER: quickcart-eks
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with: {python-version: "3.12"}
+    - run: pip install -r services/api/requirements.txt
+    - run: python -m compileall services/api/app
+
+  build-scan-push:
+    if: github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build API
+      run: |
+        docker build -t "$ECR_API:${GITHUB_SHA}" services/api
+        docker tag "$ECR_API:${GITHUB_SHA}" "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_API:${GITHUB_SHA}"
+        docker push "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_API:${GITHUB_SHA}"
+
+    - name: Build Web
+      run: |
+        docker build --build-arg VITE_API_URL=/api -t "$ECR_WEB:${GITHUB_SHA}" services/web
+        docker tag "$ECR_WEB:${GITHUB_SHA}" "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_WEB:${GITHUB_SHA}"
+        docker push "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_WEB:${GITHUB_SHA}"
+
+    - name: Trivy scan
+      uses: aquasecurity/trivy-action@0.28.0
+      with:
+        image-ref: "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_API }}:${{ github.sha }}"
+        severity: "CRITICAL,HIGH"
+        exit-code: "1"
+
+  deploy:
+    if: github.event_name == 'push'
+    needs: build-scan-push
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+    - run: aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
+    - run: |
+        helm upgrade --install quickcart deploy/helm/quickcart \
+          --namespace quickcart --create-namespace \
+          --set api.image="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_API}" \
+          --set api.tag="${GITHUB_SHA}" \
+          --set web.image="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_WEB}" \
+          --set web.tag="${GITHUB_SHA}"

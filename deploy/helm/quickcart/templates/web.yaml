@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: quickcart-web}
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector: {matchLabels: {app: quickcart-web}}
+  template:
+    metadata: {labels: {app: quickcart-web}}
+    spec:
+      containers:
+      - name: web
+        image: "{{ .Values.web.image }}:{{ .Values.web.tag }}"
+        ports: [{containerPort: 80}]
+        resources:
+          requests: {cpu: "50m", memory: "64Mi"}
+          limits: {cpu: "300m", memory: "256Mi"}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: quickcart-web}
+spec:
+  selector: {app: quickcart-web}
+  ports: [{port: 80, targetPort: 80}]
