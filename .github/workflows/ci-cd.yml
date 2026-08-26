@@ -1,3 +1,4 @@
+# GitHub AWS OIDC configuration
 name: QuickCart CI/CD
 on:
   push:
