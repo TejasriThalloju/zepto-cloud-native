@@ -8,8 +8,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <App />
   </React.StrictMode>
 )
-#import React, {useEffect, useState} from "react";
-#import {createRoot} from "react-dom/client";
+
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
