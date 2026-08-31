@@ -1,7 +1,7 @@
 services:
-
   db:
     image: postgres:17
+    container_name: quickcart-db
     environment:
       POSTGRES_DB: quickcart
       POSTGRES_USER: quickcart
@@ -10,16 +10,18 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./services/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./services/database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
   redis:
     image: redis:8-alpine
+    container_name: quickcart-redis
     ports:
       - "6379:6379"
 
   api:
     build:
       context: ./services/api
+    container_name: quickcart-api
     environment:
       DATABASE_URL: postgresql://quickcart:quickcart123@db:5432/quickcart
       REDIS_URL: redis://redis:6379/0
@@ -32,6 +34,7 @@ services:
   web:
     build:
       context: ./services/web
+    container_name: quickcart-web
     ports:
       - "5173:80"
     depends_on:
