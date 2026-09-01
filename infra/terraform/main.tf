@@ -92,13 +92,30 @@ resource "aws_db_instance" "postgres" {
 }
 
 resource "aws_security_group" "redis" {
-  name   = "${var.project}-redis"
-  vpc_id = module.vpc.vpc_id
+  name        = "${var.project_name}-redis-sg"
+  description = "Security group for Redis"
+  vpc_id      = module.vpc.vpc_id
+
   ingress {
-    from_port=6379 to_port=6379 protocol="tcp"
-    security_groups=[module.eks.node_security_group_id]
+    from_port = 6379
+    to_port   = 6379
+    protocol  = "tcp"
+
+    cidr_blocks = [
+      var.vpc_cidr
+    ]
   }
-  egress { from_port=0 to_port=0 protocol="-1" cidr_blocks=["0.0.0.0/0"] }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.project_name}-redis-sg"
+  }
 }
 
 resource "aws_elasticache_subnet_group" "redis" {
