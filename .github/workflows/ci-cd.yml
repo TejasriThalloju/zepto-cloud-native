@@ -164,7 +164,7 @@ jobs:
       - name: Scan Web image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ env.WEB_IMAGE }}
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/quickcart/web:${{ github.sha }}
           format: table
           exit-code: "1"
           ignore-unfixed: true
