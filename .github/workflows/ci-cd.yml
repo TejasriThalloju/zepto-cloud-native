@@ -46,7 +46,7 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::523859314235:role/GitHubActionsQuickCartRole
+          role-to-assume: arn:aws:iam::523859314235:role/ZeptoGitHubActionsRole 
           aws-region: ap-south-1
       - name: Verify AWS identity
         run: aws sts get-caller-identity
