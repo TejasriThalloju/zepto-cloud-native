@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+
+  - database/secret.yaml
+  - database/service.yaml
+  - database/statefulset.yaml
+
+  - redis/deployment.yaml
+  - redis/service.yaml
+
+  - security/rbac.yaml
+
+  - api/service.yaml
+  - api/deployment.yaml
+
+  - web/service.yaml
+  - web/deployment.yaml

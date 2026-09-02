@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: quickcart
+
+spec:
+  serviceName: postgres
+
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: postgres
+
+  template:
+    metadata:
+      labels:
+        app: postgres
+
+    spec:
+      containers:
+
+        - name: postgres
+
+          image: postgres:16
+
+          ports:
+            - containerPort: 5432
+              name: postgres
+
+          env:
+
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: quickcart-db-secret
+                  key: POSTGRES_DB
+
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: quickcart-db-secret
+                  key: POSTGRES_USER
+
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: quickcart-db-secret
+                  key: POSTGRES_PASSWORD
+
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+  volumeClaimTemplates:
+
+    - metadata:
+        name: postgres-storage
+
+      spec:
+        accessModes:
+          - ReadWriteOnce
+
+        resources:
+          requests:
+            storage: 10Gi

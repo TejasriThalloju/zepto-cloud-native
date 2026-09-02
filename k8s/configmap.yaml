@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: quickcart-config
+  namespace: quickcart
+
+data:
+  NODE_ENV: "production"
+  PORT: "5000"
