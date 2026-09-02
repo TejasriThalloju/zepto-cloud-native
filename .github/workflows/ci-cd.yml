@@ -5,64 +5,49 @@ on:
     branches:
       - main
 
-  pull_request:
-    branches:
-      - main
-
 permissions:
   contents: read
   id-token: write
 
 env:
   AWS_REGION: ap-south-1
+  AWS_ACCOUNT_ID: "523859314235"
+
   ECR_API: quickcart/api
   ECR_WEB: quickcart/web
+
   EKS_CLUSTER: quickcart-eks
   K8S_NAMESPACE: quickcart
 
+  AWS_ROLE_ARN: arn:aws:iam::523859314235:role/ZeptoGitHubActionsRole
 
 jobs:
 
   # ============================================================
-  # CI - TEST APPLICATION
+  # CI - TEST
   # ============================================================
 
   test:
-
     name: Test Application
-
     runs-on: ubuntu-latest
 
     steps:
 
-      # --------------------------------------------------------
-      # CHECKOUT
-      # --------------------------------------------------------
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
-
-      # ========================================================
-      # TEST PYTHON FASTAPI
-      # ========================================================
+      # ---------------- Python API ----------------
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-
       - name: Install API dependencies
         working-directory: services/api
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-
-      # --------------------------------------------------------
-      # API IMPORT CHECK
-      # --------------------------------------------------------
 
       - name: Check API
         working-directory: services/api
@@ -72,23 +57,18 @@ jobs:
         run: |
           python -c "from app.main import app; print(app.title)"
 
-
-      # ========================================================
-      # TEST FRONTEND
-      # ======================================================
+      # ---------------- Frontend ----------------
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "22"
           cache: npm
           cache-dependency-path: services/web/package-lock.json
-
 
       - name: Install Web dependencies
         working-directory: services/web
         run: npm ci
-
 
       - name: Build Web application
         working-directory: services/web
@@ -96,33 +76,20 @@ jobs:
 
 
   # ============================================================
-  # BUILD, SCAN AND PUSH
+  # BUILD AND PUSH
   # ============================================================
 
-  build-scan-push:
-
-    name: Build Scan and Push
-
+  build-and-push:
+    name: Build and Push Images
     needs: test
-
     runs-on: ubuntu-latest
 
-    # Do not push images for Pull Requests
-    if: github.event_name == 'push'
-
     steps:
-
-      # --------------------------------------------------------
-      # CHECKOUT
-      # --------------------------------------------------------
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
-
-      # --------------------------------------------------------
-      # CONFIGURE AWS USING GITHUB OIDC
-      # --------------------------------------------------------
+      # ---------------- AWS OIDC ----------------
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -130,19 +97,18 @@ jobs:
           role-to-assume: arn:aws:iam::523859314235:role/ZeptoGitHubActionsRole
           aws-region: ap-south-1
 
+      # ---------------- Verify AWS ----------------
 
-      # --------------------------------------------------------
-      # LOGIN TO AMAZON ECR
-      # --------------------------------------------------------
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      # ---------------- ECR Login ----------------
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-
-      # --------------------------------------------------------
-      # CREATE IMAGE REFERENCES
-      # --------------------------------------------------------
+      # ---------------- Image Variables ----------------
 
       - name: Set image variables
         env:
@@ -152,33 +118,17 @@ jobs:
           echo "API_IMAGE=$REGISTRY/${{ env.ECR_API }}:$IMAGE_TAG" >> "$GITHUB_ENV"
           echo "WEB_IMAGE=$REGISTRY/${{ env.ECR_WEB }}:$IMAGE_TAG" >> "$GITHUB_ENV"
 
+      # ---------------- Build API ----------------
 
-      # --------------------------------------------------------
-      # DISPLAY IMAGE REFERENCES
-      # --------------------------------------------------------
-
-      - name: Display image references
-        run: |
-          echo "API_IMAGE=$API_IMAGE"
-          echo "WEB_IMAGE=$WEB_IMAGE"
-
-
-      # ========================================================
-      # BUILD API IMAGE
-      # ========================================================
-
-      - name: Build API Docker image
+      - name: Build API image
         run: |
           docker build \
             -t "$API_IMAGE" \
             ./services/api
 
+      # ---------------- Scan API ----------------
 
-      # ========================================================
-      # SCAN API WITH TRIVY
-      # ========================================================
-
-      - name: Scan API image with Trivy
+      - name: Scan API image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.API_IMAGE }}
@@ -188,32 +138,31 @@ jobs:
           severity: "CRITICAL,HIGH"
           vuln-type: "os,library"
 
+      # ---------------- Push API ----------------
 
-      # ========================================================
-      # PUSH API IMAGE
-      # ========================================================
-
-      - name: Push API image to ECR
+      - name: Push API image
         run: |
           docker push "$API_IMAGE"
 
+      # ---------------- API Latest ----------------
 
-      # ========================================================
-      # BUILD WEB IMAGE
-      # ========================================================
+      - name: Push API latest
+        run: |
+          API_LATEST="${API_IMAGE%:*}:latest"
+          docker tag "$API_IMAGE" "$API_LATEST"
+          docker push "$API_LATEST"
 
-      - name: Build Web Docker image
+      # ---------------- Build Web ----------------
+
+      - name: Build Web image
         run: |
           docker build \
             -t "$WEB_IMAGE" \
             ./services/web
 
+      # ---------------- Scan Web ----------------
 
-      # ========================================================
-      # SCAN WEB WITH TRIVY
-      # ========================================================
-
-      - name: Scan Web image with Trivy
+      - name: Scan Web image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.WEB_IMAGE }}
@@ -223,39 +172,18 @@ jobs:
           severity: "CRITICAL,HIGH"
           vuln-type: "os,library"
 
+      # ---------------- Push Web ----------------
 
-      # ========================================================
-      # PUSH WEB IMAGE
-      # ========================================================
-
-      - name: Push Web image to ECR
+      - name: Push Web image
         run: |
           docker push "$WEB_IMAGE"
 
+      # ---------------- Web Latest ----------------
 
-      # ========================================================
-      # TAG API AS LATEST
-      # ========================================================
-
-      - name: Tag API image as latest
-        run: |
-          API_LATEST="${API_IMAGE%:*}:latest"
-
-          docker tag "$API_IMAGE" "$API_LATEST"
-
-          docker push "$API_LATEST"
-
-
-      # ========================================================
-      # TAG WEB AS LATEST
-      # ========================================================
-
-      - name: Tag Web image as latest
+      - name: Push Web latest
         run: |
           WEB_LATEST="${WEB_IMAGE%:*}:latest"
-
           docker tag "$WEB_IMAGE" "$WEB_LATEST"
-
           docker push "$WEB_LATEST"
 
 
@@ -264,47 +192,34 @@ jobs:
   # ============================================================
 
   deploy:
-
     name: Deploy to EKS
-
-    needs: build-scan-push
-
+    needs: build-and-push
     runs-on: ubuntu-latest
 
-    if: github.event_name == 'push'
-
     steps:
-
-      # --------------------------------------------------------
-      # CHECKOUT
-      # --------------------------------------------------------
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
-
-      # --------------------------------------------------------
-      # CONFIGURE AWS USING OIDC
-      # --------------------------------------------------------
+      # ---------------- AWS OIDC ----------------
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::523859314235:role/ZeptoGitHubActionsRole
+          aws-region: ap-south-1
 
+      # ---------------- Verify AWS ----------------
 
-      # --------------------------------------------------------
-      # SETUP KUBECTL
-      # --------------------------------------------------------
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      # ---------------- Setup kubectl ----------------
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
 
-
-      # --------------------------------------------------------
-      # CONNECT TO EKS
-      # --------------------------------------------------------
+      # ---------------- Connect to EKS ----------------
 
       - name: Update kubeconfig
         run: |
@@ -312,136 +227,69 @@ jobs:
             --region "$AWS_REGION" \
             --name "$EKS_CLUSTER"
 
-
-      # --------------------------------------------------------
-      # VERIFY CLUSTER CONNECTION
-      # --------------------------------------------------------
+      # ---------------- Verify Cluster ----------------
 
       - name: Verify EKS connection
         run: |
           kubectl get nodes
 
+      # ---------------- Deploy Infrastructure ----------------
 
-      # --------------------------------------------------------
-      # APPLY KUBERNETES MANIFESTS
-      # --------------------------------------------------------
-
-      - name: Deploy Kubernetes manifests
+      - name: Apply Kubernetes manifests
         run: |
           kubectl apply -k k8s/
 
+      # ---------------- Set Image Variables ----------------
 
-      # --------------------------------------------------------
-      # GET AWS ACCOUNT ID
-      # --------------------------------------------------------
-
-      - name: Get ECR registry
-        id: ecr
+      - name: Set deployment image variables
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity \
-            --query Account \
-            --output text)
+          REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-          echo "registry=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com" >> "$GITHUB_OUTPUT"
+          echo "API_IMAGE=$REGISTRY/${ECR_API}:${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "WEB_IMAGE=$REGISTRY/${ECR_WEB}:${GITHUB_SHA}" >> "$GITHUB_ENV"
 
-
-      # ========================================================
-      # UPDATE API IMAGE
-      # ========================================================
+      # ---------------- Update API ----------------
 
       - name: Update API deployment
-        env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
         run: |
-          API_IMAGE="$REGISTRY/${{ env.ECR_API }}:$IMAGE_TAG"
-
-          echo "Deploying API image: $API_IMAGE"
-
           kubectl set image \
             deployment/quickcart-api \
             api="$API_IMAGE" \
             -n "$K8S_NAMESPACE"
 
-
-      # ========================================================
-      # UPDATE WEB IMAGE
-      # ========================================================
+      # ---------------- Update Web ----------------
 
       - name: Update Web deployment
-        env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
         run: |
-          WEB_IMAGE="$REGISTRY/${{ env.ECR_WEB }}:$IMAGE_TAG"
-
-          echo "Deploying WEB image: $WEB_IMAGE"
-
           kubectl set image \
             deployment/quickcart-web \
             web="$WEB_IMAGE" \
             -n "$K8S_NAMESPACE"
 
+      # ---------------- Wait for API ----------------
 
-      # ========================================================
-      # WAIT FOR POSTGRES
-      # ========================================================
-
-      - name: Wait for PostgreSQL
-        run: |
-          kubectl rollout status \
-            statefulset/postgres \
-            -n "$K8S_NAMESPACE" \
-            --timeout=5m
-
-
-      # ========================================================
-      # WAIT FOR REDIS
-      # ========================================================
-
-      - name: Wait for Redis
-        run: |
-          kubectl rollout status \
-            deployment/redis \
-            -n "$K8S_NAMESPACE" \
-            --timeout=5m
-
-
-      # ========================================================
-      # WAIT FOR API
-      # ========================================================
-
-      - name: Wait for API deployment
+      - name: Wait for API
         run: |
           kubectl rollout status \
             deployment/quickcart-api \
             -n "$K8S_NAMESPACE" \
             --timeout=5m
 
+      # ---------------- Wait for Web ----------------
 
-      # ========================================================
-      # WAIT FOR WEB
-      # ========================================================
-
-      - name: Wait for Web deployment
+      - name: Wait for Web
         run: |
           kubectl rollout status \
             deployment/quickcart-web \
             -n "$K8S_NAMESPACE" \
             --timeout=5m
 
+      # ---------------- Final Status ----------------
 
-      # ========================================================
-      # SHOW FINAL STATUS
-      # ========================================================
-
-      - name: Show Kubernetes status
+      - name: Show deployment status
         run: |
           echo "========== DEPLOYMENTS =========="
           kubectl get deployments -n "$K8S_NAMESPACE"
-
-          echo "========== STATEFULSETS =========="
-          kubectl get statefulsets -n "$K8S_NAMESPACE"
 
           echo "========== PODS =========="
           kubectl get pods -n "$K8S_NAMESPACE"
