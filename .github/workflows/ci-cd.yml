@@ -240,12 +240,13 @@ jobs:
 
       # ---------------- Set Image Variables ----------------
 
-      - name: Set deployment image variables
+      - name: Set image variables
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-
-          echo "API_IMAGE=$REGISTRY/${ECR_API}:${GITHUB_SHA}" >> "$GITHUB_ENV"
-          echo "WEB_IMAGE=$REGISTRY/${ECR_WEB}:${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "API_IMAGE=$REGISTRY/${{ env.ECR_API }}:$IMAGE_TAG" >> "$GITHUB_ENV"
+          echo "WEB_IMAGE=$REGISTRY/${{ env.ECR_WEB }}:$IMAGE_TAG" >> "$GITHUB_ENV"
 
       # ---------------- Update API ----------------
 
