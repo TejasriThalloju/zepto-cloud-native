@@ -130,12 +130,12 @@ jobs:
       - name: Scan API image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ env.API_IMAGE }}
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/quickcart/api:${{ github.sha }}
           format: table
           exit-code: "1"
           ignore-unfixed: true
           severity: "CRITICAL,HIGH"
-          svuln-type: "os,library"
+          vuln-type: "os,library"
 
       # ---------------- Push API ----------------
 
