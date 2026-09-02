@@ -43,7 +43,17 @@ jobs:
           echo "Repository: $GITHUB_REPOSITORY"
           echo "Ref: $GITHUB_REF"
           echo "Event: $GITHUB_EVENT_NAME"
+      - name: Debug OIDC claims
+        shell: bash
+        run: |
+          TOKEN=$(curl -s \
+          -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+           "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" \
+           | jq -r '.value')
 
+           PAYLOAD=$(echo "$TOKEN" | cut -d '.' -f2)
+
+           echo "$PAYLOAD" | tr '_-' '/+' | base64 -d 2>/dev/null || true
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::523859314235:role/ZeptoGitHubActionsRole 
