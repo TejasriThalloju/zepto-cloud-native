@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: quickcart-web
+  name: quickcart-api
   namespace: quickcart
 
 spec:
@@ -9,46 +9,67 @@ spec:
 
   selector:
     matchLabels:
-      app: quickcart-web
+      app: quickcart-api
 
   template:
     metadata:
       labels:
-        app: quickcart-web
+        app: quickcart-api
 
     spec:
       containers:
-        - name: web
-
-          image: PLACEHOLDER_WEB_IMAGE
-
+        - name: api
+          image: PLACEHOLDER_API_IMAGE
           imagePullPolicy: Always
 
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8000
+
+          env:
+            - name: APP_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: quickcart-config
+                  key: APP_NAME
+
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: quickcart-config
+                  key: REDIS_URL
+
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: quickcart-config
+                  key: CORS_ORIGINS
+
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: quickcart-db-secret
+                  key: DATABASE_URL
 
           readinessProbe:
             httpGet:
-              path: /
-              port: 80
-
+              path: /ready
+              port: 8000
             initialDelaySeconds: 10
             periodSeconds: 10
 
           livenessProbe:
             httpGet:
-              path: /
-              port: 80
-
+              path: /health
+              port: 8000
             initialDelaySeconds: 30
             periodSeconds: 20
 
           resources:
             requests:
-              memory: "128Mi"
-              cpu: "100m"
-
-            limits:
               memory: "256Mi"
               cpu: "250m"
+
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
