@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: PLACEHOLDER_API_IMAGE
+          image: 523859314235.dkr.ecr.ap-south-1.amazonaws.com/quickcart/api:latest
           imagePullPolicy: Always
 
           ports:

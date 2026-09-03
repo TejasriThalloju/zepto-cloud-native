@@ -92,7 +92,7 @@ resource "aws_db_instance" "postgres" {
 }
 
 resource "aws_security_group" "redis" {
-  name        = "${var.project_name}-redis-sg"
+  name        = "${var.project}-redis-sg"
   description = "Security group for Redis"
   vpc_id      = module.vpc.vpc_id
 
@@ -114,7 +114,7 @@ resource "aws_security_group" "redis" {
   }
 
   tags = {
-    Name = "${var.project_name}-redis-sg"
+    Name = "${var.project}-redis-sg"
   }
 }
 
