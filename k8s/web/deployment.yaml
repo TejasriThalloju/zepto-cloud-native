@@ -24,7 +24,7 @@ spec:
 
         - name: web
 
-          image: PLACEHOLDER_WEB_IMAGE
+          image: 523859314235.dkr.ecr.ap-south-1.amazonaws.com/quickcart/web:latest
 
           imagePullPolicy: Always
 
